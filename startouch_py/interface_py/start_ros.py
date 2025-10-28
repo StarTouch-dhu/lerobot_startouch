@@ -33,24 +33,34 @@ class MainArmJointPublisher(Node):
         self.joint_pub_follower_left = self.create_publisher(JointState, '/left_arm/joint_states_now', 2)
         self.get_logger().info("4话题初始化完成")
 
-        # 5. 设置发布频率
+        # 5. 初始化并启动重力补偿线程
+        self.right_gravity_thread = threading.Thread(
+            target=self.right_gravity,      # 线程执行的函数
+            daemon=True)                    # 设为守护线程：主程序退出时线程自动关闭
+        self.right_gravity_thread.start()   # 启动线程
+        self.get_logger().info("右重力补偿独立线程已启动")
+
+        self.right_control_thread = threading.Thread(
+            target=self.right_control,      # 线程执行的函数
+            daemon=True)                    # 设为守护线程：主程序退出时线程自动关闭
+        self.right_control_thread.start()   # 启动线程
+        self.get_logger().info("右控制独立线程已启动")
+
+        self.left_gravity_thread = threading.Thread(
+            target=self.left_gravity,       # 线程执行的函数
+            daemon=True)                    # 设为守护线程：主程序退出时线程自动关闭
+        self.left_gravity_thread.start()    # 启动线程
+        self.get_logger().info("左重力补偿独立线程已启动")
+
+        self.left_control_thread = threading.Thread(
+            target=self.left_control,       # 线程执行的函数
+            daemon=True)                    # 设为守护线程：主程序退出时线程自动关闭
+        self.left_control_thread.start()    # 启动线程
+        self.get_logger().info("左控制独立线程已启动")
+
+        # 6. 设置发布频率
         self.timer = self.create_timer(0.01, self.publish_joint_states)
         self.get_logger().info("定时器初始化完成，开始发布关节状态")
-
-        # 6. 初始化并启动重力补偿线程
-        self.right_thread_running = True    # 线程运行标志（用于控制线程退出）
-        self.right_gravity_control_thread = threading.Thread(
-            target=self.right_thread,       # 线程执行的函数
-            daemon=True)                    # 设为守护线程：主程序退出时线程自动关闭
-        self.right_gravity_control_thread.start()   # 启动线程
-        self.get_logger().info("右双臂独立线程已启动")
-
-        self.left_thread_running = True     # 线程运行标志（用于控制线程退出）
-        self.left_gravity_control_thread = threading.Thread(
-            target=self.left_thread,        # 线程执行的函数
-            daemon=True)                    # 设为守护线程：主程序退出时线程自动关闭
-        self.left_gravity_control_thread.start()    # 启动线程
-        self.get_logger().info("左双臂独立线程已启动")
 
         self.last_freq_time = time.time()
 
@@ -106,32 +116,40 @@ class MainArmJointPublisher(Node):
         except Exception as e:
             self.get_logger().error(f"发布关节状态失败: {str(e)}")
 
-    def right_thread(self):
-        """右臂独立线程函数：包含单独的 while 循环"""
-        # 线程循环：只要 running 标志为 True，就持续执行
-        while self.right_thread_running:
+    def right_gravity(self):
+        while True:
+            try:
+                self.arm_controller_right.gravity_compensation()
+            except Exception as e:
+                self.get_logger().error(f"右重力补偿独立线程执行失败: {str(e)}")
+                time.sleep(0.5)  # 避免过快循环导致日志刷屏
+
+    def left_gravity(self):
+        while True:
+            try:
+                self.arm_controller_left.gravity_compensation()
+            except Exception as e:
+                self.get_logger().error(f"左重力补偿独立线程执行失败: {str(e)}")
+                time.sleep(0.5)  # 避免过快循环导致日志刷屏
+    
+    def right_control(self):
+        while True:
             try:
                 self.positions_controller_right = self.arm_controller_right.get_joint_positions()
                 self.positions_follower_right = self.arm_follower_right.get_joint_positions()
-                self.arm_controller_right.gravity_compensation()
                 self.arm_follower_right.set_joint_raw(positions = self.positions_controller_right, velocities = [0, 0, 0, 0, 0, 0])
-
             except Exception as e:
-                self.get_logger().error(f"右臂独立线程执行失败: {str(e)}")
+                self.get_logger().error(f"右臂控制独立线程执行失败: {str(e)}")
                 time.sleep(0.5)  # 避免过快循环导致日志刷屏
-    
-    def left_thread(self):
-        """左臂独立线程函数：包含单独的 while 循环"""
-        # 线程循环：只要 running 标志为 True，就持续执行
-        while self.left_thread_running:
+
+    def left_control(self):
+        while True:
             try:
                 self.positions_controller_left = self.arm_controller_left.get_joint_positions()
                 self.positions_follower_left = self.arm_follower_left.get_joint_positions()
-                self.arm_controller_left.gravity_compensation()
                 self.arm_follower_left.set_joint_raw(positions = self.positions_controller_left, velocities = [0, 0, 0, 0, 0, 0])
-
             except Exception as e:
-                self.get_logger().error(f"左臂独立线程执行失败: {str(e)}")
+                self.get_logger().error(f"左臂控制独立线程执行失败: {str(e)}")
                 time.sleep(0.5)  # 避免过快循环导致日志刷屏
 
 def main(args=None):
