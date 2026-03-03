@@ -13,7 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from .startouch_arm.config_startouch_arm import StartouchArmConfig
+from .startouch_arm.config_startouch_single import StartouchArmConfig_single
 from .config import RobotConfig
 from .robot import Robot
 from .utils import make_robot_from_config

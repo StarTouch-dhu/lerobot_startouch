@@ -58,8 +58,15 @@ def make_robot_from_config(config: RobotConfig) -> Robot:
         return Reachy2Robot(config)
     elif config.type == "mock_robot":
         from tests.mocks.mock_robot import MockRobot
+    
+    elif config.type == "startouch_arm":
+        from .startouch_arm import StartouchArm
 
-        return MockRobot(config)
+        return StartouchArm(config)
+    elif config.type == "startouch_arm_single":
+        from .startouch_arm import StartouchArm_single
+
+        return StartouchArm_single(config)
     else:
         try:
             return cast(Robot, make_device_from_device_class(config))

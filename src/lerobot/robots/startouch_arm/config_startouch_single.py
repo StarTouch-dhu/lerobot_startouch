@@ -10,10 +10,10 @@ from lerobot.cameras import CameraConfig
 
 from ..config import RobotConfig
 
-@RobotConfig.register_subclass("startouch_arm")
+@RobotConfig.register_subclass("startouch_arm_single")
 @dataclass
-class StartouchArmConfig(RobotConfig):
-    type: str = "startouch_arm"  # 必须与 StartouchArm.robot_type 对齐
+class StartouchArmConfig_single(RobotConfig):
+    type: str = "startouch_arm_single"  # 必须与 StartouchArm.robot_type 对齐
 
     leader_arms: dict[str, list[str]] = field(
         default_factory=lambda: {
@@ -25,15 +25,6 @@ class StartouchArmConfig(RobotConfig):
                 "left_wrist_2",
                 "left_wrist_3",
                 "left_gripper",
-            ],
-            "right_arm": [
-                "right_shoulder_pan",
-                "right_shoulder_lift",
-                "right_elbow_flex",
-                "right_wrist_1",
-                "right_wrist_2",
-                "right_wrist_3",
-                "right_gripper",
             ],
         }
     )
@@ -48,22 +39,11 @@ class StartouchArmConfig(RobotConfig):
                 "left_wrist_3",
                 "left_gripper",
             ],
-            "right_arm": [
-                "right_shoulder_pan",
-                "right_shoulder_lift",
-                "right_elbow_flex",
-                "right_wrist_1",
-                "right_wrist_2",
-                "right_wrist_3",
-                "right_gripper",
-            ],
         }
     )
     cameras: dict[str, OpenCVCameraConfig] = field(
         default_factory=lambda: {
-            "laptop": OpenCVCameraConfig(index_or_path=4, fps=30, width=640, height=480),
-            "right": OpenCVCameraConfig(index_or_path=2, fps=30, width=640, height=480),
-            "left": OpenCVCameraConfig(index_or_path=0, fps=30, width=640, height=480),
-            
+            "laptop": OpenCVCameraConfig(index_or_path=0, fps=30, width=640, height=480),
+            "left": OpenCVCameraConfig(index_or_path=2, fps=30, width=640, height=480),
         }
     )

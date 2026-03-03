@@ -1,15 +1,17 @@
+# from dataclasses import dataclass, field
+# from lerobot.robots.robot import RobotConfig
+from lerobot.cameras.opencv.configuration_opencv import OpenCVCameraConfig
+from lerobot.cameras import CameraConfig
 
-
-
-
+# from .config_startouch_arm import StartouchArmConfig
 from dataclasses import dataclass, field
 
-from lerobot.cameras.opencv.configuration_opencv import OpenCVCameraConfig
-
-
+from lerobot.cameras import CameraConfig
 
 from ..config import RobotConfig
 
+@RobotConfig.register_subclass("startouch_arm")
+@dataclass
 class StartouchArmConfig(RobotConfig):
     type: str = "startouch_arm"  # 必须与 StartouchArm.robot_type 对齐
 
@@ -59,9 +61,9 @@ class StartouchArmConfig(RobotConfig):
     )
     cameras: dict[str, OpenCVCameraConfig] = field(
         default_factory=lambda: {
-            "laptop": OpenCVCameraConfig(index_or_path=4, fps=30, width=640, height=480),
-            "right": OpenCVCameraConfig(index_or_path=2, fps=30, width=640, height=480),
-            "left": OpenCVCameraConfig(index_or_path=0, fps=30, width=640, height=480),
+            "laptop": OpenCVCameraConfig(index_or_path=0, fps=30, width=640, height=480),
+            "right": OpenCVCameraConfig(index_or_path=4, fps=30, width=640, height=480),
+            "left": OpenCVCameraConfig(index_or_path=2, fps=30, width=640, height=480),
             
         }
     )

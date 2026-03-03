@@ -5,19 +5,21 @@ import rclpy
 from rclpy.callback_groups import ReentrantCallbackGroup
 from sensor_msgs.msg import JointState
 from .config_startouch_arm import StartouchArmConfig
+from.config_startouch_single import StartouchArmConfig_single
 from lerobot.cameras.utils import make_cameras_from_configs
 import logging
 import numpy as np
 
-class StartouchArm(Robot):
-    config_class = StartouchArmConfig
-    name = "startouch_arm"
+class StartouchArm_single(Robot):
+    config_class = StartouchArmConfig_single
+
+    name = "startouch_arm_single"
 
     def __init__(self, config, mode="teleop"):
         super().__init__(config)
         self.config = config
         self.mode = mode
-        self.robot_type = "startouch_arm"
+        self.robot_type = "startouch_arm_single"
 
         self.latest_state_map = None  # inference 模式下，来自 /puppet/joint 的 {name: value}
 
@@ -36,15 +38,6 @@ class StartouchArm(Robot):
                 "joint6": "left_wrist_3",
                 "gripper": "left_gripper"
                 
-            },
-            "right_arm": {
-                "joint1": "right_shoulder_pan",
-                "joint2": "right_shoulder_lift",
-                "joint3": "right_elbow_flex",
-                "joint4": "right_wrist_1",
-                "joint5": "right_wrist_2",
-                "joint6": "right_wrist_3",
-                "gripper": "right_gripper"
             }
         }
 
@@ -71,16 +64,8 @@ class StartouchArm(Robot):
             "left_wrist_2": float,
             "left_wrist_3": float,
             "left_gripper": float,
-            "right_shoulder_pan": float,
-            "right_shoulder_lift": float,
-            "right_elbow_flex": float,
-            "right_wrist_1": float,
-            "right_wrist_2": float,
-            "right_wrist_3": float,
-            "right_gripper": float,
             # 摄像头直接写 tuple
             "laptop": (480, 640, 3),
-            "right": (480, 640, 3),
             "left": (480, 640, 3),
         }
 
@@ -94,13 +79,6 @@ class StartouchArm(Robot):
             "left_wrist_2": float,
             "left_wrist_3": float,
             "left_gripper": float,
-            "right_shoulder_pan": float,
-            "right_shoulder_lift": float,
-            "right_elbow_flex": float,
-            "right_wrist_1": float,
-            "right_wrist_2": float,
-            "right_wrist_3": float,
-            "right_gripper": float,
         }
 
 
@@ -111,13 +89,13 @@ class StartouchArm(Robot):
         if not rclpy.ok():
             rclpy.init()
 
-        self.node = rclpy.create_node("startouch_arm")
+        self.node = rclpy.create_node("startouch_arm_single")
         if self.mode == "teleop":
             # 原 teleop 订阅
             for arm in self.follower_arms.keys():
                 topic = f"/{arm}/joint_states_now"
                 self.subs[arm] = self.node.create_subscription(
-                    JointState, topic, lambda msg, arm=arm: self._joint_cb(msg, arm), 10,
+                    JointState, topic, lambda msg, arm=arm: self._joint_cb(msg, arm), 5,
                     callback_group=self.callback_group,
                 )
                 self.latest_joint_state[arm] = None
@@ -125,14 +103,14 @@ class StartouchArm(Robot):
             for arm in self.leader_arms.keys():
                 topic = f"/{arm}/joint_states_target"
                 self.subs[f"{arm}_action"] = self.node.create_subscription(
-                    JointState, topic, lambda msg, arm=arm: self._action_cb(msg, arm), 10,
+                    JointState, topic, lambda msg, arm=arm: self._action_cb(msg, arm), 5,
                     callback_group=self.callback_group,
                 )
                 self.latest_action_state[arm] = None
 
         elif self.mode == "inference":
             # 新逻辑：合并双臂
-            self.node.create_subscription(JointState, "/puppet/joint", self._inference_cb, 10)
+            self.node.create_subscription(JointState, "/puppet/joint", self._inference_cb, 5)
 
         # 相机连接
         for name in self.cameras:
