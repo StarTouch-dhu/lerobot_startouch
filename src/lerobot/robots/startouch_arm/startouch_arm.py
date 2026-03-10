@@ -58,6 +58,54 @@ class StartouchArm(Robot):
         self.latest_action_state = {}
         self.callback_group = ReentrantCallbackGroup()
         self._is_connected = False
+        self.obs_timing_enabled = False
+        self.obs_timing_interval_s = 1.0
+        self._obs_timing_window_start = None
+        self._obs_timing_count = 0
+        self._obs_timing_sums = {}
+
+    def _update_obs_timing(self, total_s: float, spin_s: float, state_s: float, cam_times: dict[str, float]) -> None:
+        if not self.obs_timing_enabled:
+            return
+
+        import time
+
+        now = time.perf_counter()
+        if self._obs_timing_window_start is None:
+            self._obs_timing_window_start = now
+            self._obs_timing_count = 0
+            self._obs_timing_sums = {
+                "total": 0.0,
+                "spin": 0.0,
+                "state": 0.0,
+            }
+
+        self._obs_timing_count += 1
+        self._obs_timing_sums["total"] += total_s
+        self._obs_timing_sums["spin"] += spin_s
+        self._obs_timing_sums["state"] += state_s
+        for k, v in cam_times.items():
+            key = f"cam_{k}"
+            self._obs_timing_sums[key] = self._obs_timing_sums.get(key, 0.0) + v
+
+        window_dt = now - self._obs_timing_window_start
+        if window_dt < self.obs_timing_interval_s:
+            return
+
+        n = max(self._obs_timing_count, 1)
+        msg_items = [
+            f"obs_total_ms={self._obs_timing_sums['total'] * 1000.0 / n:.2f}",
+            f"spin_ms={self._obs_timing_sums['spin'] * 1000.0 / n:.2f}",
+            f"state_ms={self._obs_timing_sums['state'] * 1000.0 / n:.2f}",
+        ]
+        for cam_key in sorted([k for k in self._obs_timing_sums if k.startswith('cam_')]):
+            msg_items.append(f"{cam_key}_ms={self._obs_timing_sums[cam_key] * 1000.0 / n:.2f}")
+        msg_items.append(f"obs_hz={n / window_dt:.2f}")
+        logging.info("[OBS_TIMING] " + ", ".join(msg_items))
+
+        self._obs_timing_window_start = now
+        self._obs_timing_count = 0
+        self._obs_timing_sums = {"total": 0.0, "spin": 0.0, "state": 0.0}
 
     # ---- dataset schema ----
     @property
@@ -228,9 +276,15 @@ class StartouchArm(Robot):
     # lerobot/robots/startouch_arm/startouch_arm.py
     def get_observation(self):
         try:
+            import time
+
+            t_all_start = time.perf_counter()
+            t_spin_start = time.perf_counter()
             rclpy.spin_once(self.node, timeout_sec=0.5)
+            t_spin = time.perf_counter() - t_spin_start
             obs = {}
 
+            t_state_start = time.perf_counter()
             if self.mode == "inference":
                 # 1) 关节：按照 observation_features 里 float 键的顺序来取
                 obs_schema = self.observation_features
@@ -271,9 +325,12 @@ class StartouchArm(Robot):
 
                 for name, val in zip(state_names, state_array):
                     obs[name] = float(val)
+            t_state = time.perf_counter() - t_state_start
 
             # 2) 相机（两种模式一致）
+            cam_times = {}
             for cam_key, cam in self.cameras.items():
+                cam_t0 = time.perf_counter()
                 try:
                     img = cam.read()
                     if img is None:
@@ -283,6 +340,10 @@ class StartouchArm(Robot):
                 except Exception as e:
                     logging.error(f"Error reading camera {cam_key}: {e}")
                     obs[cam_key] = np.zeros((cam.height, cam.width, 3), dtype=np.uint8)
+                cam_times[cam_key] = time.perf_counter() - cam_t0
+
+            t_total = time.perf_counter() - t_all_start
+            self._update_obs_timing(total_s=t_total, spin_s=t_spin, state_s=t_state, cam_times=cam_times)
 
             return obs
 

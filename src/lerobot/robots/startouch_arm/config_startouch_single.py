@@ -43,7 +43,7 @@ class StartouchArmConfig_single(RobotConfig):
     )
     cameras: dict[str, OpenCVCameraConfig] = field(
         default_factory=lambda: {
-            "laptop": OpenCVCameraConfig(index_or_path=0, fps=30, width=640, height=480),
-            "left": OpenCVCameraConfig(index_or_path=2, fps=30, width=640, height=480),
+            "laptop": OpenCVCameraConfig(index_or_path=2, fps=30, width=640, height=480),
+            "left": OpenCVCameraConfig(index_or_path=0, fps=30, width=640, height=480),
         }
     )
